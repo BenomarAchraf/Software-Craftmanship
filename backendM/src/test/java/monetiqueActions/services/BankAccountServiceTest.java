@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -20,6 +21,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import monetiqueActions.dtos.AccountHistoryDTO;
 import monetiqueActions.dtos.AccountOperationDTO;
@@ -64,6 +68,7 @@ public class BankAccountServiceTest {
 	private Customer customer;
 	private Customer customer1;
 	private CurrentAccount currentAccount;
+	private Page<AccountOperation> accountOperations;
 	private CurrentBankAccountDTO currentBankAccountDTO;
 	private SavingAccount savingAccount;
 	private SavingBankAccountDTO savingBankAccountDTO;
@@ -73,6 +78,7 @@ public class BankAccountServiceTest {
 	private AccountOperation creditaccountOperation;
 	private BankAccount bankAccount;
 	private AccountHistoryDTO accountHistoryDTO;
+	private List<AccountOperation> accountOperationstest;
 
 	@BeforeEach
 	void init() {
@@ -145,6 +151,12 @@ public class BankAccountServiceTest {
 		
 		accountHistoryDTO = new AccountHistoryDTO();
 		accountHistoryDTO.setAccountId("5");
+		
+		accountOperationstest=new ArrayList();
+		accountOperationstest.add(creditaccountOperation);
+		accountOperationstest.add(debitaccountOperation);
+		
+		accountOperations=new PageImpl<>(accountOperationstest, PageRequest.of(3, 3),2);
 	}
 	
 
@@ -325,7 +337,33 @@ public class BankAccountServiceTest {
 		
 	}
 	
+	@Test
+	@DisplayName("It should return the History of a specific account")
+	void getAccountHistorywithoutException() throws BankAccountNotFoundException {
+		when(bankAccountRepository.findById(any(String.class))).thenReturn(Optional.ofNullable(bankAccount));
+		when(accountOperationRepository.findByBankAccountIdOrderByOperationDateDesc(any(String.class),any(PageRequest.class))).thenReturn(accountOperations);
+		//when(accountOperations.getContent()).thenReturn(accountOperationstest);
+		List<AccountOperationDTO> accountOperationsDTO=new ArrayList();
+		accountOperationsDTO.add(creditaccountOperationDTO);
+		accountOperationsDTO.add(debitaccountOperationDTO);
+		when(dtoMapper.fromAccountOperation(creditaccountOperation)).thenReturn(creditaccountOperationDTO);
+		when(dtoMapper.fromAccountOperation(debitaccountOperation)).thenReturn(debitaccountOperationDTO);
+		AccountHistoryDTO accountHistoryDTO=bankAccountServiceImpl.getAccountHistory("f", 3, 3);
+		assertEquals(accountHistoryDTO.getAccountOperationDTOS().get(0), creditaccountOperationDTO);
+		assertEquals(accountHistoryDTO.getAccountOperationDTOS().get(1), debitaccountOperationDTO);
+
+	}
 	
+	@Test
+	@DisplayName("It should throw an exception while getting the History of a specific account")
+	void getAccountHistorywithException() {
+		
+		when(bankAccountRepository.findById(any(String.class))).thenReturn(Optional.ofNullable(null));
+		assertThrows(BankAccountNotFoundException.class, () -> {
+			bankAccountServiceImpl.getAccountHistory("f", 3, 3);        });
+		
+		
+	}
 	
 	
 	
